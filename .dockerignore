@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+.vscode
+.cursor
+.DS_Store
+node_modules
+deploy/**
+
+!deploy/app.jar

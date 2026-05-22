@@ -1,0 +1,20 @@
+# NovaHub 本地配置（请复制 application.yml 修改后使用）
+# 不要将此文件提交到版本库
+
+spring:
+  datasource:
+    password: your_password
+
+  data:
+    redis:
+      password: your_redis_password
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+jwt:
+  secret: change_this_to_a_secure_random_secret_key_at_least_256_bits
+
+minio:
+  access-key: your_minio_access_key
+  secret-key: your_minio_secret_key

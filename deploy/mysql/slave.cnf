@@ -1,0 +1,15 @@
+[mysqld]
+server-id=2
+relay-log=relay-bin
+read-only=ON
+super-read-only=ON
+log-bin=mysql-bin
+binlog-format=ROW
+replicate-do-db=nova_hub
+max_connections=1000
+innodb-buffer-pool-size=256M
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+relay_log_recovery=ON
+relay_log_purge=ON
+read_only=ON

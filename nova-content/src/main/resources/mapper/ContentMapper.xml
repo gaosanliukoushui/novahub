@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novahub.content.mapper.ContentMapper">
+
+    <resultMap id="BaseResultMap" type="com.novahub.content.entity.Content">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="type" property="type"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="cover_url" property="coverUrl"/>
+        <result column="media_url" property="mediaUrl"/>
+        <result column="media_type" property="mediaType"/>
+        <result column="status" property="status"/>
+        <result column="review_status" property="reviewStatus"/>
+        <result column="review_remark" property="reviewRemark"/>
+        <result column="like_count" property="likeCount"/>
+        <result column="collect_count" property="collectCount"/>
+        <result column="comment_count" property="commentCount"/>
+        <result column="view_count" property="viewCount"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="publish_time" property="publishTime"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <select id="selectPublishedList" resultMap="BaseResultMap">
+        SELECT c.*
+        FROM content c
+        <where>
+            c.is_deleted = 0
+            AND c.status = 2
+            <if test="type != null">
+                AND c.type = #{type}
+            </if>
+            <if test="tagId != null">
+                AND c.id IN (
+                    SELECT content_id FROM content_tag_rel WHERE tag_id = #{tagId}
+                )
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'likeCount'">
+                ORDER BY c.like_count DESC, c.create_time DESC
+            </when>
+            <otherwise>
+                ORDER BY c.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT c.*
+        FROM content c
+        <where>
+            c.is_deleted = 0
+            AND c.user_id = #{userId}
+            <if test="status != null">
+                AND c.status = #{status}
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'likeCount'">
+                ORDER BY c.like_count DESC, c.create_time DESC
+            </when>
+            <otherwise>
+                ORDER BY c.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectDraftsByUserId" resultMap="BaseResultMap">
+        SELECT c.*
+        FROM content c
+        WHERE c.is_deleted = 0
+          AND c.user_id = #{userId}
+          AND c.status = 0
+        ORDER BY c.create_time DESC
+    </select>
+
+    <update id="incrementViewCount">
+        UPDATE content
+        SET view_count = view_count + 1
+        WHERE id = #{id}
+    </update>
+
+</mapper>

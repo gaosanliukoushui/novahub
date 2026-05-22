@@ -1,0 +1,67 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.cursor/
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Package files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Temp files
+*.tmp
+*.bak
+*.orig
+*.old
+
+# Application
+application-local.yml
+application-dev.yml
+application-prod.yml
+*.env
+.env
+
+# Test output
+test-output/
+surefire-reports/
+
+# Spring Boot repackaged jar extraction
+BOOT-INF/
+META-INF/
+org/
+
+# Docker runtime data
+deploy/es/data/
+deploy/es/logs/
+deploy/kafka/data/
+deploy/minio/data/
+deploy/mysql/data/
+deploy/nginx/logs/
+deploy/redis/data/

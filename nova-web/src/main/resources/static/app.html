@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NovaHub</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/app.html" aria-label="NovaHub 首页">
+        <span class="brand-mark">N</span>
+        <span>
+          <strong>NovaHub</strong>
+          <small>内容社区控制台</small>
+        </span>
+      </a>
+      <nav class="nav-tabs" aria-label="主导航">
+        <button class="nav-tab active" data-view="feed" type="button">内容流</button>
+        <button class="nav-tab" data-view="publish" type="button">发布</button>
+        <button class="nav-tab" data-view="profile" type="button">我的</button>
+        <a class="doc-link" href="/doc.html">API 文档</a>
+      </nav>
+    </header>
+
+    <main class="workspace">
+      <aside class="rail">
+        <section class="panel auth-panel">
+          <div class="panel-heading">
+            <span class="eyebrow">Account</span>
+            <strong id="authTitle">登录</strong>
+          </div>
+
+          <div id="signedOut">
+            <div class="mode-switch" role="tablist" aria-label="登录模式">
+              <button class="mode-btn active" id="loginMode" type="button">登录</button>
+              <button class="mode-btn" id="registerMode" type="button">注册</button>
+            </div>
+
+            <form id="authForm" class="form">
+              <label>
+                <span>用户名</span>
+                <input id="username" name="username" autocomplete="username" required minlength="3" maxlength="32" placeholder="demo_user">
+              </label>
+              <label>
+                <span>密码</span>
+                <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="32" placeholder="至少 6 位">
+              </label>
+              <label class="register-only hidden">
+                <span>昵称</span>
+                <input id="nickname" name="nickname" maxlength="64" placeholder="你的社区昵称">
+              </label>
+              <label class="register-only hidden">
+                <span>邮箱</span>
+                <input id="email" name="email" type="email" placeholder="name@example.com">
+              </label>
+              <div class="auth-actions">
+                <button class="ghost-action" type="button" id="demoFillBtn">填入演示账号</button>
+                <button class="primary-action" type="submit" id="authSubmit">登录</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="signedIn" class="signed-card hidden">
+            <div class="avatar" id="profileAvatar">N</div>
+            <div>
+              <strong id="profileName">已登录</strong>
+              <span id="profileMeta">欢迎回来</span>
+            </div>
+            <button class="ghost-action" type="button" id="logoutBtn">退出登录</button>
+          </div>
+        </section>
+
+        <section class="panel stats-panel">
+          <span class="eyebrow">Runtime</span>
+          <div class="status-row">
+            <span>后端状态</span>
+            <strong id="healthState">检测中</strong>
+          </div>
+          <div class="status-row">
+            <span>当前接口</span>
+            <strong>/api</strong>
+          </div>
+        </section>
+      </aside>
+
+      <section class="main-stage">
+        <section class="view-section active" id="feedView">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Explore</span>
+              <h1>内容流</h1>
+            </div>
+            <div class="toolbar">
+              <button class="chip active" data-feed-type="latest" type="button">最新</button>
+              <button class="chip" data-feed-type="hot" type="button">热门</button>
+              <button class="chip" data-feed-type="recommend" type="button">推荐</button>
+            </div>
+          </div>
+          <div id="feedList" class="content-list"></div>
+        </section>
+
+        <section class="view-section" id="publishView">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Create</span>
+              <h1>发布内容</h1>
+            </div>
+            <button class="ghost-action" id="loadDraftsBtn" type="button">查看草稿</button>
+          </div>
+
+          <form id="publishForm" class="composer">
+            <label>
+              <span>标题</span>
+              <input id="postTitle" maxlength="255" placeholder="给这次分享起个标题">
+            </label>
+            <label>
+              <span>正文</span>
+              <textarea id="postContent" rows="8" placeholder="写下你的观点、笔记或项目进展"></textarea>
+            </label>
+            <div class="form-grid">
+              <label>
+                <span>类型</span>
+                <select id="postType">
+                  <option value="1">帖子</option>
+                  <option value="2">视频</option>
+                </select>
+              </label>
+              <label>
+                <span>封面 URL</span>
+                <input id="coverUrl" placeholder="https://...">
+              </label>
+            </div>
+            <label>
+              <span>标签</span>
+              <select id="tagSelect" multiple size="5"></select>
+            </label>
+            <div class="composer-actions">
+              <button class="ghost-action" data-status="0" type="submit">保存草稿</button>
+              <button class="primary-action" data-status="1" type="submit">提交发布</button>
+            </div>
+          </form>
+          <div id="draftList" class="content-list compact-list"></div>
+        </section>
+
+        <section class="view-section" id="profileView">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Me</span>
+              <h1>个人信息</h1>
+            </div>
+          </div>
+          <div id="profileDetail" class="profile-detail"></div>
+        </section>
+      </section>
+
+      <aside class="side">
+        <section class="panel search-panel">
+          <div class="panel-heading">
+            <span class="eyebrow">Search</span>
+            <strong>站内搜索</strong>
+          </div>
+          <form id="searchForm" class="search-box">
+            <input id="searchInput" placeholder="搜索内容或标题">
+            <button type="submit" aria-label="搜索">⌕</button>
+          </form>
+          <div id="searchResults" class="mini-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <span class="eyebrow">Hot</span>
+            <strong>热榜</strong>
+          </div>
+          <div id="hotList" class="mini-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <span class="eyebrow">Tags</span>
+            <strong>热门标签</strong>
+          </div>
+          <div id="tagCloud" class="tag-cloud"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="detailDialog" class="detail-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <article class="detail-panel">
+      <button class="close-button" type="button" id="closeDetailBtn" aria-label="关闭详情">×</button>
+      <header class="detail-head">
+        <span class="eyebrow">Detail</span>
+        <h2 id="detailTitle">内容详情</h2>
+        <p id="detailMeta">正在加载</p>
+      </header>
+      <section id="detailBody" class="detail-body"></section>
+      <div class="detail-actions">
+        <button class="primary-action" type="button" id="likeBtn">点赞</button>
+        <button class="ghost-action" type="button" id="collectBtn">收藏</button>
+      </div>
+      <section class="comment-section">
+        <div class="panel-heading">
+          <span class="eyebrow">Comments</span>
+          <strong>评论区</strong>
+        </div>
+        <form id="commentForm" class="comment-form">
+          <textarea id="commentInput" rows="3" maxlength="2000" placeholder="登录后写下你的评论"></textarea>
+          <button class="primary-action" type="submit">发表评论</button>
+        </form>
+        <div id="commentList" class="comment-list"></div>
+      </section>
+    </article>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

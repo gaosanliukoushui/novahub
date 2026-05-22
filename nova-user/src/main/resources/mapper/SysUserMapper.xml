@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novahub.user.mapper.SysUserMapper">
+
+    <resultMap id="BaseResultMap" type="com.novahub.user.entity.SysUser">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
+        <result column="nickname" property="nickname"/>
+        <result column="avatar" property="avatar"/>
+        <result column="bio" property="bio"/>
+        <result column="status" property="status"/>
+        <result column="follow_count" property="followCount"/>
+        <result column="fans_count" property="fansCount"/>
+        <result column="works_count" property="worksCount"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <select id="selectExcludePassword" resultMap="BaseResultMap">
+        SELECT id, username, phone, email, nickname, avatar, bio, status,
+               follow_count, fans_count, works_count, create_time, update_time, is_deleted
+        FROM sys_user
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+</mapper>

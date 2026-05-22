@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.novahub</groupId>
+        <artifactId>nova-hub</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>nova-recommend</artifactId>
+    <packaging>jar</packaging>
+    <name>nova-recommend</name>
+    <description>推荐系统模块：协同过滤、基于内容推荐、A/B测试框架</description>
+
+    <dependencies>
+        <!-- 公共模块 -->
+        <dependency>
+            <groupId>com.novahub</groupId>
+            <artifactId>nova-common</artifactId>
+        </dependency>
+
+        <!-- 用户模块（用于获取用户信息） -->
+        <dependency>
+            <groupId>com.novahub</groupId>
+            <artifactId>nova-user</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 内容模块（用于获取内容信息） -->
+        <dependency>
+            <groupId>com.novahub</groupId>
+            <artifactId>nova-content</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 互动模块（用于获取点赞、收藏数据） -->
+        <dependency>
+            <groupId>com.novahub</groupId>
+            <artifactId>nova-interaction</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 热榜模块（用于获取热度数据） -->
+        <dependency>
+            <groupId>com.novahub</groupId>
+            <artifactId>nova-hotrank</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- MyBatis-Plus -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        </dependency>
+
+        <!-- Kafka -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

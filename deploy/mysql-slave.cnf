@@ -1,0 +1,18 @@
+[mysqld]
+server-id = 2
+read-only = ON
+super-read-only = ON
+relay-log = relay-bin
+relay-log-index = relay-bin.index
+relay-log-purge = ON
+
+max_connections = 1000
+innodb-buffer-pool-size = 256M
+innodb-log-file-size = 128M
+innodb-flush-log-at-trx-commit = 2
+sync-binlog = 0
+
+log-error = /var/log/mysql/error.log
+slow-query-log = 1
+slow-query-log-file = /var/log/mysql/slow-query.log
+long-query-time = 2

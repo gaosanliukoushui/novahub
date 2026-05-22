@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novahub.content.mapper.ContentTagMapper">
+
+    <resultMap id="BaseResultMap" type="com.novahub.content.entity.ContentTag">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="color" property="color"/>
+        <result column="use_count" property="useCount"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectHotTags" resultMap="BaseResultMap">
+        SELECT *
+        FROM content_tag
+        ORDER BY use_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectByNames" resultMap="BaseResultMap">
+        SELECT *
+        FROM content_tag
+        WHERE name IN
+        <foreach collection="names" item="name" open="(" separator="," close=")">
+            #{name}
+        </foreach>
+    </select>
+
+    <update id="incrementUseCount">
+        UPDATE content_tag
+        SET use_count = use_count + 1
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>

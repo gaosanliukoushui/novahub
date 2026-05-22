@@ -1,0 +1,325 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: novahub-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: nova_hub
+      MYSQL_USER: novahub
+      MYSQL_PASSWORD: root123
+      TZ: Asia/Shanghai
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../db/sql:/docker-entrypoint-initdb.d
+      - ./mysql/master.cnf:/etc/mysql/conf.d/master.cnf:ro
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max_connections=1000
+      - --innodb-buffer-pool-size=256M
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nova-net
+
+  mysql-slave:
+    image: mysql:8.0
+    container_name: novahub-mysql-slave
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: nova_hub
+      MYSQL_USER: novahub
+      MYSQL_PASSWORD: root123
+      TZ: Asia/Shanghai
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-slave-data:/var/lib/mysql
+      - ./mysql-slave.cnf:/etc/mysql/conf.d/slave.cnf:ro
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max_connections=1000
+      - --innodb-buffer-pool-size=256M
+      - --server-id=2
+      - --read-only=ON
+      - --relay-log=relay-bin
+      - --super-read-only=ON
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nova-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: novahub-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - nova-net
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: novahub-kafka
+    hostname: kafka
+    restart: always
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: localhost
+      TZ: Asia/Shanghai
+    ports:
+      - "9092:9092"
+      - "9999:9999"
+    volumes:
+      - ./kafka/data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # Kafka UI（管理界面，可选）
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: novahub-kafka-ui
+    restart: always
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: ""
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - nova-net
+
+  elasticsearch:
+    image: elasticsearch:8.13.4
+    container_name: novahub-es
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ./es/data:/usr/share/elasticsearch/data
+      - ./es/logs:/usr/share/elasticsearch/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    networks:
+      - nova-net
+
+  # MinIO（对象存储）
+  minio:
+    image: minio/minio:latest
+    container_name: novahub-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./minio/data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - nova-net
+
+  nova-app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: novahub-app
+    restart: always
+    ports:
+      - "9080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      ENABLE_SKYWALKING: "false"
+      DB_HOST: mysql
+      DB_USER: novahub
+      DB_PASS: root123
+      DB_SLAVE_HOST: mysql
+      DB_SLAVE_USER: novahub
+      DB_SLAVE_PASS: root123
+      TZ: Asia/Shanghai
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - nova-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: novahub-nginx
+    restart: always
+    ports:
+      - "8089:80"
+      - "8443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      nova-app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # SkyWalking OAP（链路追踪）
+  skywalking-oap:
+    image: apache/skywalking-oap-server:9.6.0
+    container_name: novahub-skywalking-oap
+    restart: always
+    ports:
+      - "11800:11800"
+      - "12800:12800"
+    environment:
+      - TZ=Asia/Shanghai
+      - SW_STORAGE=elasticsearch
+      - SW_STORAGE_ES_NODES=http://elasticsearch:9200
+      - SW_HEALTH_CHECKER_DEFAULT_ZIPKIN_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:12800/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - nova-net
+
+  # SkyWalking UI（可选，查看链路追踪数据）
+  skywalking-ui:
+    image: apache/skywalking-ui:9.6.0
+    container_name: novahub-skywalking-ui
+    restart: always
+    ports:
+      - "8088:8080"
+    environment:
+      - TZ=Asia/Shanghai
+      - SW_OAP_ADDRESS=http://skywalking-oap:12800
+    depends_on:
+      skywalking-oap:
+        condition: service_started
+    networks:
+      - nova-net
+
+  # Logstash（日志收集）
+  logstash:
+    image: logstash:8.12.0
+    container_name: novahub-logstash
+    restart: always
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - nova-net
+
+  # Kibana（日志可视化）
+  kibana:
+    image: kibana:8.12.0
+    container_name: novahub-kibana
+    restart: always
+    ports:
+      - "5601:5601"
+    environment:
+      - TZ=Asia/Shanghai
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=novahub-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+networks:
+  nova-net:
+    name: novahub-net
+    driver: bridge
+
+volumes:
+  es-data:
+  mysql-data:
+  mysql-slave-data:
+  redis-data:
+  kafka-data:
+  minio-data:

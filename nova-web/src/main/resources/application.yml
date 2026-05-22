@@ -1,0 +1,162 @@
+server:
+  port: 8080
+  tomcat:
+    use-relative-redirects: true
+
+spring:
+  application:
+    name: nova-hub
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/nova_hub?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: 123456
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # 动态数据源配置（读写分离）
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: jdbc:mysql://${DB_HOST:localhost}:3306/nova_hub?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+          username: ${DB_USER:root}
+          password: ${DB_PASS:123456}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          hikari:
+            maximum-pool-size: 20
+            minimum-idle: 5
+        slave:
+          url: jdbc:mysql://${DB_SLAVE_HOST:localhost}:3306/nova_hub?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+          username: ${DB_SLAVE_USER:root}
+          password: ${DB_SLAVE_PASS:123456}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          hikari:
+            maximum-pool-size: 40
+            minimum-idle: 10
+
+  # Redis Session 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: 2000ms
+
+  # 分布式 Session 配置
+  session:
+    store-type: redis
+    timeout: 86400s
+    redis:
+      namespace: nova:session
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: nova-hub-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.novahub.*
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.novahub.**.entity
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+jwt:
+  secret: NovaHub2024SecretKeyForJwtTokenGenerationMustBeLongEnough256bits!
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+# Session 多端登录控制（false=单端登录，true=允许多端）
+session:
+  multi-device-enabled: false
+
+# SkyWalking 配置
+skywalking:
+  enabled: true
+  service-name: nova-hub-web
+  collector-backend: ${SKYWALKING_OAP_HOST:localhost}:${SKYWALKING_OAP_PORT:11800}
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket-name: nova-hub
+
+elasticsearch:
+  host: localhost
+  port: 9200
+  scheme: http
+
+xxl-job:
+  enabled: false
+  admin:
+    addresses: http://localhost:8088/xxl-job-admin
+  executor:
+    appname: nova-hub-executor
+    port: 9999
+    ip:
+    logpath: /data/applogs/xxl-job/jobhandler
+    logretentiondays: 30
+  accessToken: default_token
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+  openapi:
+    title: NovaHub API Documentation
+    description: NovaHub 内容社区平台接口文档
+    version: 1.0.0
+    contact:
+      name: NovaHub Team
+
+logging:
+  level:
+    com.novahub: DEBUG
+    com.novahub.web: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}

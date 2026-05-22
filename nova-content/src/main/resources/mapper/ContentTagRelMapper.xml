@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novahub.content.mapper.ContentTagRelMapper">
+
+    <resultMap id="BaseResultMap" type="com.novahub.content.entity.ContentTagRel">
+        <id column="id" property="id"/>
+        <result column="content_id" property="contentId"/>
+        <result column="tag_id" property="tagId"/>
+    </resultMap>
+
+    <select id="selectTagIdsByContentId" resultType="java.lang.Long">
+        SELECT tag_id
+        FROM content_tag_rel
+        WHERE content_id = #{contentId}
+    </select>
+
+    <delete id="deleteByContentId">
+        DELETE FROM content_tag_rel
+        WHERE content_id = #{contentId}
+    </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO content_tag_rel (content_id, tag_id)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.contentId}, #{item.tagId})
+        </foreach>
+    </insert>
+
+    <select id="countByTagId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM content_tag_rel
+        WHERE tag_id = #{tagId}
+    </select>
+
+</mapper>
