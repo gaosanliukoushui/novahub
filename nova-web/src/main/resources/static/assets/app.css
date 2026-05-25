@@ -388,13 +388,31 @@ select:focus {
   color: var(--sage-strong);
 }
 
-.profile-detail {
+.profile-detail,
+.dashboard-grid,
+.admin-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
-.profile-tile {
+.profile-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.profile-columns h2,
+.admin-card h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.profile-tile,
+.metric-card,
+.chart-card,
+.admin-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px;
@@ -415,6 +433,90 @@ select:focus {
 
 .profile-tile.wide {
   grid-column: span 2;
+}
+
+.metric-card {
+  background:
+    radial-gradient(circle at top right, rgba(217, 164, 65, 0.22), transparent 36%),
+    white;
+}
+
+.metric-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--sage-strong);
+  font-size: 34px;
+}
+
+.chart-card {
+  margin-top: 16px;
+}
+
+.bar-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(44px, 1fr));
+  align-items: end;
+  min-height: 180px;
+  gap: 10px;
+}
+
+.bar-item {
+  display: grid;
+  justify-items: center;
+  align-items: end;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bar-item span {
+  width: 100%;
+  max-width: 42px;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, var(--clay), var(--sage));
+}
+
+.bar-item strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.admin-grid {
+  margin-top: 12px;
+}
+
+.admin-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.admin-inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-output {
+  min-height: 110px;
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  overflow: auto;
+  color: var(--sage-strong);
+  background: #f5f7f2;
 }
 
 .empty-state {
@@ -569,6 +671,9 @@ select:focus {
   .side,
   .form-grid,
   .profile-detail,
+  .profile-columns,
+  .dashboard-grid,
+  .admin-grid,
   .auth-actions {
     grid-template-columns: 1fr;
   }

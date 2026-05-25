@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -88,6 +89,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             Long userId = jwtUtils.getUserIdFromToken(token);
             String username = jwtUtils.getUsernameFromToken(token);
             SecurityUtils.setUser(userId, username);
+            MDC.put("userId", String.valueOf(userId));
 
             HttpSession session = request.getSession(true);
             bindSession(session, userId, username, token);
@@ -102,6 +104,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         SecurityUtils.clear();
+        MDC.remove("userId");
     }
 
     private void bindSession(HttpSession session, Long userId, String username, String token) {

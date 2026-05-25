@@ -15,6 +15,8 @@ public interface ContentTagRelMapper extends BaseMapper<ContentTagRel> {
      */
     List<Long> selectTagIdsByContentId(@Param("contentId") Long contentId);
 
+    List<ContentTagRel> selectByContentIds(@Param("contentIds") List<Long> contentIds);
+
     /**
      * 根据内容ID删除所有关联
      */

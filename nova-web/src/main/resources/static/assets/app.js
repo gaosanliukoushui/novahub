@@ -3,7 +3,8 @@ const state = {
   user: JSON.parse(localStorage.getItem("novahub.user") || "null"),
   authMode: "login",
   feedType: "latest",
-  activeContent: null
+  activeContent: null,
+  route: location.hash || "#/feed"
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -206,6 +207,25 @@ function renderProfile() {
   `;
 }
 
+function isAdminUser() {
+  return state.user && state.user.username === "demo_admin";
+}
+
+function setHash(view, contentId) {
+  const next = contentId ? `#/${view}/${contentId}` : `#/${view}`;
+  if (location.hash !== next) {
+    location.hash = next;
+  }
+}
+
+function parseRoute() {
+  const parts = (location.hash || "#/feed").replace(/^#\/?/, "").split("/");
+  return {
+    view: parts[0] || "feed",
+    id: parts[1]
+  };
+}
+
 async function loadFeed() {
   const target = $("#feedList");
   target.innerHTML = empty("正在加载内容流...");
@@ -253,6 +273,132 @@ async function loadHotRank() {
       : empty("暂无热榜数据");
   } catch (error) {
     $("#hotList").innerHTML = empty(error.message);
+  }
+}
+
+function renderDashboardCards(data = {}) {
+  const cards = [
+    ["PV", data.pv || data.todayPv || 0],
+    ["UV", data.uv || data.todayUv || 0],
+    ["内容", data.contentCount || data.contentTotal || 0],
+    ["互动", data.interactionCount || data.behaviorCount || 0]
+  ];
+  $("#dashboardCards").innerHTML = cards.map(([label, value]) => `
+    <article class="metric-card">
+      <span>${label}</span>
+      <strong>${Number(value || 0).toLocaleString()}</strong>
+    </article>
+  `).join("");
+}
+
+function renderTrendChart(data = {}) {
+  const labels = data.dates || data.labels || [];
+  const values = data.pv || data.values || data.counts || [];
+  if (!labels.length || !values.length) {
+    $("#trendChart").innerHTML = empty("暂无趋势数据，演示环境可通过刷新或压测脚本产生行为数据。");
+    return;
+  }
+  const max = Math.max(...values, 1);
+  $("#trendChart").innerHTML = labels.map((label, index) => {
+    const value = Number(values[index] || 0);
+    const height = Math.max(8, Math.round((value / max) * 120));
+    return `
+      <div class="bar-item">
+        <span style="height:${height}px"></span>
+        <strong>${value}</strong>
+        <small>${escapeHtml(label)}</small>
+      </div>
+    `;
+  }).join("");
+}
+
+async function loadDashboard() {
+  $("#dashboardCards").innerHTML = empty("正在加载看板...");
+  $("#trendChart").innerHTML = empty("正在加载趋势...");
+  $("#topContentList").innerHTML = empty("正在加载热门内容...");
+  try {
+    const [dashboard, trend, top] = await Promise.all([
+      api("/api/monitor/dashboard").catch(() => ({})),
+      api("/api/monitor/trend?days=7").catch(() => ({})),
+      api("/api/monitor/content/top?type=like&limit=8").catch(() => [])
+    ]);
+    renderDashboardCards(dashboard);
+    renderTrendChart(trend);
+    $("#topContentList").innerHTML = top.length
+      ? top.map((item, index) => `
+        <button class="mini-item mini-button" type="button" data-open="${item.contentId || item.id || ""}">
+          <strong>#${index + 1} 内容 ${item.contentId || item.id || "-"}</strong>
+          <span>指标 ${item.count || item.score || item.value || 0}</span>
+        </button>
+      `).join("")
+      : empty("暂无 TOP 内容数据");
+  } catch (error) {
+    $("#dashboardCards").innerHTML = empty(error.message);
+  }
+}
+
+async function loadProfileCollections() {
+  if (!state.token || !state.user) {
+    $("#myContentList").innerHTML = empty("登录后展示你的公开内容。");
+    $("#myCollectList").innerHTML = empty("登录后展示你的收藏。");
+    $("#notificationList").innerHTML = empty("登录后展示通知。");
+    return;
+  }
+  try {
+    const [myContents, collects, notices] = await Promise.all([
+      api(`/api/contents/users/${state.user.id}/contents?page=1&pageSize=6`).catch(() => ({ records: [] })),
+      api("/api/collections?page=1&pageSize=6").catch(() => ({ records: [] })),
+      api("/api/notify/list?page=1&pageSize=6").catch(() => ({ records: [] }))
+    ]);
+    const myRecords = myContents.records || myContents || [];
+    const collectRecords = collects.records || collects || [];
+    const noticeRecords = notices.records || notices || [];
+    $("#myContentList").innerHTML = myRecords.length ? myRecords.map(renderCard).join("") : empty("暂无公开内容。");
+    $("#myCollectList").innerHTML = collectRecords.length ? collectRecords.map(renderCard).join("") : empty("暂无收藏内容。");
+    $("#notificationList").innerHTML = noticeRecords.length
+      ? noticeRecords.map((item) => `<div class="mini-item"><strong>${escapeHtml(item.type || "通知")}</strong><span>${escapeHtml(item.content || "")}</span></div>`).join("")
+      : empty("暂无通知。");
+  } catch (error) {
+    $("#notificationList").innerHTML = empty(error.message);
+  }
+}
+
+function renderAdmin() {
+  const allowed = isAdminUser();
+  $("#adminGuard").classList.toggle("hidden", allowed);
+  $("#adminActions").classList.toggle("hidden", !allowed);
+  if (!allowed) {
+    $("#adminOutput").textContent = "";
+  }
+}
+
+async function runAdminAction(action) {
+  if (!isAdminUser()) {
+    toast("请使用 demo_admin 登录后操作");
+    return;
+  }
+  const endpoints = {
+    prewarm: "/api/admin/hotrank/prewarm?limit=100",
+    rebuildSearch: "/api/admin/search/rebuild",
+    reloadDemo: "/api/admin/demo-data/reload"
+  };
+  if (action === "approveContent" || action === "rejectContent") {
+    const contentId = $("#reviewContentId").value.trim();
+    if (!contentId) {
+      toast("请先输入内容 ID");
+      return;
+    }
+    endpoints[action] = `/api/admin/content/${encodeURIComponent(contentId)}/${action === "approveContent" ? "approve" : "reject"}`;
+  }
+  $("#adminOutput").textContent = "执行中...";
+  try {
+    const result = await api(endpoints[action], { method: "POST" });
+    $("#adminOutput").textContent = JSON.stringify(result, null, 2);
+    toast("管理操作已提交");
+    await Promise.allSettled([loadFeed(), loadHotRank(), loadDashboard()]);
+  } catch (error) {
+    $("#adminOutput").textContent = error.message;
+    toast(error.message);
   }
 }
 
@@ -375,16 +521,28 @@ function requireLogin(actionName) {
 }
 
 function switchView(view) {
+  if (!$(`#${view}View`)) view = "feed";
   $$(".nav-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   $$(".view-section").forEach((section) => section.classList.remove("active"));
   $(`#${view}View`).classList.add("active");
-  if (view === "profile") loadMe();
+  if (view === "profile") Promise.allSettled([loadMe(), loadProfileCollections()]);
   if (view === "publish") loadDrafts();
+  if (view === "dashboard") loadDashboard();
+  if (view === "admin") renderAdmin();
+}
+
+function applyRoute() {
+  const route = parseRoute();
+  const view = route.view === "content" ? "feed" : route.view;
+  switchView(view);
+  if (route.view === "content" && route.id) {
+    openDetail(route.id);
+  }
 }
 
 function bindEvents() {
   $$(".nav-tab").forEach((btn) => {
-    btn.addEventListener("click", () => switchView(btn.dataset.view));
+    btn.addEventListener("click", () => setHash(btn.dataset.view));
   });
 
   $("#loginMode").addEventListener("click", () => setAuthMode("login"));
@@ -395,6 +553,8 @@ function bindEvents() {
     $("#password").value = "123456";
     toast("已填入演示账号");
   });
+
+  $("#refreshDashboardBtn").addEventListener("click", loadDashboard);
 
   $("#authForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -413,6 +573,9 @@ function bindEvents() {
       saveSession(auth);
       toast(state.authMode === "register" ? "注册成功，已登录" : "登录成功");
       await Promise.all([loadMe(), loadFeed(), loadDrafts()]);
+      renderProfile();
+      renderAdmin();
+      applyRoute();
     } catch (error) {
       toast(error.message);
     }
@@ -520,8 +683,19 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-open]");
     if (!trigger) return;
-    openDetail(trigger.dataset.open);
+    if (trigger.dataset.open) {
+      setHash("content", trigger.dataset.open);
+      openDetail(trigger.dataset.open);
+    }
   });
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-admin-action]");
+    if (!trigger) return;
+    runAdminAction(trigger.dataset.adminAction);
+  });
+
+  window.addEventListener("hashchange", applyRoute);
 }
 
 function setAuthMode(mode) {
@@ -537,7 +711,9 @@ async function boot() {
   bindEvents();
   renderAuth();
   renderProfile();
+  applyRoute();
   await Promise.allSettled([loadHealth(), loadTags(), loadHotRank(), loadFeed(), loadMe()]);
+  renderAdmin();
 }
 
 boot();

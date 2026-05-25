@@ -3,8 +3,10 @@ package com.novahub.search.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
+import co.elastic.clients.elasticsearch.indices.ExistsAliasRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.RefreshRequest;
+import co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -121,6 +123,34 @@ public class IndexService {
             esClient.indices().refresh(RefreshRequest.of(r -> r.index(indexName)));
         } catch (Exception e) {
             log.error("刷新索引 {} 失败: {}", indexName, e.getMessage(), e);
+        }
+    }
+
+    public boolean aliasExists(String aliasName) {
+        try {
+            return esClient.indices().existsAlias(ExistsAliasRequest.of(e -> e.name(aliasName))).value();
+        } catch (Exception e) {
+            log.warn("检查索引别名失败: alias={}, error={}", aliasName, e.getMessage());
+            return false;
+        }
+    }
+
+    public void switchAlias(String aliasName, String newIndexName) {
+        try {
+            esClient.indices().updateAliases(UpdateAliasesRequest.of(request -> request
+                    .actions(action -> action.remove(remove -> remove
+                            .index("*")
+                            .alias(aliasName)
+                            .mustExist(false)))
+                    .actions(action -> action.add(add -> add
+                            .index(newIndexName)
+                            .alias(aliasName)))
+            ));
+            log.info("ES索引别名切换完成: alias={}, target={}", aliasName, newIndexName);
+        } catch (Exception e) {
+            log.error("ES索引别名切换失败: alias={}, target={}, error={}",
+                    aliasName, newIndexName, e.getMessage(), e);
+            throw new IllegalStateException("ES索引别名切换失败: " + e.getMessage(), e);
         }
     }
 }

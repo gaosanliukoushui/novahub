@@ -118,15 +118,6 @@ public class IdempotentAspect {
             return signature.getDeclaringTypeName() + "." + signature.getName();
         }
 
-        if (!keyExpression.contains("#{")) {
-            String resolved = keyExpression;
-            Long userId = SecurityUtils.getUserId();
-            if (userId != null) {
-                resolved = resolved + ":" + userId;
-            }
-            return resolved;
-        }
-
         String[] paramNames = ((MethodSignature) joinPoint.getSignature()).getParameterNames();
 
         EvaluationContext context = new StandardEvaluationContext();
@@ -141,20 +132,18 @@ public class IdempotentAspect {
             Expression expression = expressionParser.parseExpression(keyExpression);
             Object value = expression.getValue(context);
             String resolved = value == null ? keyExpression : value.toString();
-            Long userId = SecurityUtils.getUserId();
-            if (userId != null) {
-                resolved = resolved + ":" + userId;
-            }
-            return resolved;
+            return appendUserId(resolved);
         } catch (Exception e) {
-            log.warn("SpEL expression evaluation failed, using fallback key: {}", keyExpression, e);
-            MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-            String fallback = signature.getDeclaringTypeName() + "." + signature.getName();
-            Long userId = SecurityUtils.getUserId();
-            if (userId != null) {
-                fallback = fallback + ":" + userId;
-            }
-            return fallback;
+            log.debug("SpEL expression evaluation failed, using raw key: {}", keyExpression, e);
+            return appendUserId(keyExpression);
         }
+    }
+
+    private String appendUserId(String resolvedKey) {
+        Long userId = SecurityUtils.getUserId();
+        if (userId != null) {
+            return resolvedKey + ":" + userId;
+        }
+        return resolvedKey;
     }
 }

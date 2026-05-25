@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -34,6 +36,15 @@ public class UserClient {
             userInfo.setAvatar(null);
             return userInfo;
         });
+    }
+
+    public Map<Long, UserInfo> getUserInfoMap(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userIds.stream()
+                .distinct()
+                .collect(Collectors.toMap(id -> id, this::getUserInfo, (left, right) -> left));
     }
 
     public String getNickname(Long userId) {

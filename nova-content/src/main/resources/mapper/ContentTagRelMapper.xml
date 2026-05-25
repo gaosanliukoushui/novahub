@@ -14,6 +14,15 @@
         WHERE content_id = #{contentId}
     </select>
 
+    <select id="selectByContentIds" resultMap="BaseResultMap">
+        SELECT id, content_id, tag_id
+        FROM content_tag_rel
+        WHERE content_id IN
+        <foreach collection="contentIds" item="contentId" open="(" separator="," close=")">
+            #{contentId}
+        </foreach>
+    </select>
+
     <delete id="deleteByContentId">
         DELETE FROM content_tag_rel
         WHERE content_id = #{contentId}

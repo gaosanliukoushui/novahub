@@ -1,19 +1,34 @@
-# NovaHub 内容社区平台
+# NovaHub
 
-NovaHub 是一个面向简历展示的高并发内容社区项目，覆盖注册登录、内容发布、草稿、标签、点赞、收藏、评论、Feed、热榜、搜索、通知和监控等链路。项目重点不是“只写 CRUD”，而是把常见社区产品的核心工程问题串起来：缓存、限流、幂等、异步事件、搜索索引、热榜计算、Docker 可复现部署和前端可演示闭环。
+[![NovaHub CI](https://github.com/gaosanliukoushui/novahub/actions/workflows/ci.yml/badge.svg)](https://github.com/gaosanliukoushui/novahub/actions/workflows/ci.yml)
 
-## 项目亮点
+NovaHub 是一个面向简历展示和面试讲解的内容社区项目，覆盖用户注册登录、内容发布、草稿与审核、点赞收藏评论、Feed、热榜、搜索、推荐、通知、监控看板和管理演示页。项目重点不是“做一个普通 CRUD 网站”，而是把内容社区里常见的工程问题做出可演示的落地版本：缓存、限流、幂等、可靠事件、搜索索引同步、热榜计算、Docker 一键部署、自动验证和压测材料。
 
-| 方向 | 实现 |
-|------|------|
-| 用户与权限 | JWT 登录、用户资料、关注关系、角色权限基础模型 |
-| 内容发布 | 草稿、提交审核、已发布内容列表、标签关联、浏览计数 |
-| 互动链路 | 点赞、取消点赞、收藏、取消收藏、评论、回复、热门评论 |
-| Feed 与推荐 | 关注流、热门流、推荐入口，支持 Kafka 异步扩展 |
-| 热榜系统 | Redis ZSet + Caffeine 本地缓存 + DB 快照回落，支持可解释热度分 |
-| 搜索系统 | Elasticsearch 8，默认使用内置 `standard` analyzer，保留扩展 IK 分词能力 |
-| 工程治理 | Docker Compose 一键启动、演示数据、API 文档、压测报告、架构说明 |
-| 前端演示 | 无 Node 构建依赖的静态单页应用，支持登录、内容详情、评论、点赞、收藏 |
+## 快速入口
+
+- 深度手册：[docs/project-deep-dive.md](E:/我的项目/NovaHub/docs/project-deep-dive.md)
+- 架构说明：[docs/architecture.md](E:/我的项目/NovaHub/docs/architecture.md)
+- 压测报告：[docs/performance-report.md](E:/我的项目/NovaHub/docs/performance-report.md)
+- 演示脚本：[docs/demo-script.md](E:/我的项目/NovaHub/docs/demo-script.md)
+- 简历写法：[docs/resume-guide.md](E:/我的项目/NovaHub/docs/resume-guide.md)
+- 项目总览：[PROJECT_OVERVIEW.md](E:/我的项目/NovaHub/PROJECT_OVERVIEW.md)
+
+## 技术栈
+
+- 后端：Java 17、Spring Boot 3.2.5、MyBatis-Plus、JWT、Knife4j
+- 中间件：Redis、Kafka、Elasticsearch、MinIO
+- 工程能力：Caffeine、Docker Compose、SkyWalking、Logstash、Kibana、Testcontainers、JMeter
+- 前端：静态 HTML / CSS / JavaScript，无 Node 构建依赖
+
+## 功能概览
+
+- 用户与权限：注册、登录、个人资料、关注关系、RBAC
+- 内容能力：发布、草稿、审核、标签、详情、列表、上传
+- 互动能力：点赞、取消点赞、收藏、评论、回复、通知
+- 分发能力：关注流、推荐流、热门流
+- 搜索能力：全文搜索、标签搜索、索引重建
+- 数据能力：热榜、PV/UV、推荐曝光点击、运营看板
+- 管理能力：热榜预热、搜索重建、演示数据重载、内容审核
 
 ## 一键启动
 
@@ -31,73 +46,58 @@ docker compose -f deploy/docker-compose.yml up -d --build
 docker compose -f deploy/docker-compose.yml ps
 ```
 
-### 访问地址
-
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| 前端演示页 | http://localhost:8089/ | 登录、内容流、发布、详情、评论、点赞收藏 |
-| API 文档 | http://localhost:8089/doc.html | Knife4j / OpenAPI 文档 |
-| 后端健康检查 | http://localhost:9080/actuator/health | 返回 `UP` 表示后端启动完成 |
-| MySQL | `localhost:13306` | 用户 `novahub`，密码 `root123`，库 `nova_hub` |
-| MinIO 控制台 | http://localhost:9001/ | `minioadmin / minioadmin` |
-| Kafka UI | http://localhost:8090/ | 查看 Topic 和消息 |
-| SkyWalking UI | http://localhost:8095/ | 链路追踪与监控 |
-
-演示账号：
-
-| 用户名 | 密码 | 用途 |
-|--------|------|------|
-| `demo_user` | `123456` | 普通用户演示：内容详情、评论、点赞、收藏、草稿 |
-| `demo_admin` | `123456` | 管理员演示：权限模型和管理账号 |
-
-## 演示数据
-
-Fresh Docker volume 会自动执行 `db/sql/003_demo_data.sql`。如果你已经启动过项目，MySQL volume 不会重新执行初始化脚本，可以手动重复导入：
-
-```powershell
-docker exec novahub-mysql sh -c "mysql -unovahub -proot123 --default-character-set=utf8mb4 nova_hub < /docker-entrypoint-initdb.d/003_demo_data.sql"
-```
-
-导入后刷新 http://localhost:8089/，首页应能看到演示内容、热榜、标签和评论。
-
-## 常见问题
-
-### 端口 3306 被占用
-
-项目 Docker Compose 已将 MySQL 映射为 `13306:3306`，避免和本机 MySQL 冲突。如果仍然报端口冲突，检查是否有其他容器占用了 `13306`：
-
-```powershell
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-```
-
-### 容器名 novahub-app 冲突
-
-说明之前有同名容器残留。先停止当前编排，再重新启动：
-
-```powershell
-docker compose -f deploy/docker-compose.yml down
-docker compose -f deploy/docker-compose.yml up -d --build
-```
-
-### 网页 500/502 或打不开
-
-先看后端健康检查和容器日志：
+### 健康检查
 
 ```powershell
 curl http://localhost:9080/actuator/health
-docker logs --tail 200 novahub-app
-docker logs --tail 100 novahub-nginx
 ```
 
-`novahub-app` 健康后，再访问 http://localhost:8089/。如果健康检查仍未 `UP`，优先检查 MySQL、Redis、Kafka 是否健康。
+返回 `UP` 后，再访问前端页面。
 
-### 中文乱码
+## 访问地址
 
-数据库和初始化脚本都使用 `utf8mb4`。手动导入 SQL 时务必带上 `--default-character-set=utf8mb4`，PowerShell 读取文件时使用 `-Encoding UTF8`。
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| 前端首页 | `http://localhost:8089/` | 内容流、详情、评论、点赞收藏、登录 |
+| Dashboard | `http://localhost:8089/#/dashboard` | PV/UV、热榜、推荐数据 |
+| Admin | `http://localhost:8089/#/admin` | 仅管理员可用 |
+| API 文档 | `http://localhost:8089/doc.html` | Knife4j / OpenAPI |
+| 后端健康检查 | `http://localhost:9080/actuator/health` | 返回 `UP` 代表后端正常 |
+| MySQL | `localhost:13306` | `novahub / root123` |
+| MinIO Console | `http://localhost:9001/` | `minioadmin / minioadmin` |
+| Kafka UI | `http://localhost:8090/` | Topic 查看 |
+| SkyWalking UI | `http://localhost:8088/` | 可选链路追踪 |
 
-### Elasticsearch IK 分词告警
+## 演示账号
 
-默认 Compose 使用官方 Elasticsearch 镜像，不安装 IK 插件。当前 mapping 使用内置 `standard` analyzer，保证默认环境稳定启动。如需增强中文分词，可自定义 ES 镜像安装 IK 后再替换 analyzer。
+| 用户名 | 密码 | 用途 |
+|------|------|------|
+| `demo_user` | `123456` | 普通用户演示 |
+| `demo_admin` | `123456` | 管理员演示 |
+
+## 推荐演示路径
+
+1. 打开 `http://localhost:8089/`，确认首页内容流、热榜和标签正常显示。
+2. 点击任意内容详情，查看评论区、点赞收藏和相关推荐。
+3. 使用 `demo_user / 123456` 登录，演示发布、草稿、收藏和个人中心。
+4. 打开 `#/dashboard`，展示 PV/UV、热榜和推荐数据。
+5. 使用 `demo_admin / 123456` 登录后进入 `#/admin`，演示热榜预热、搜索重建、演示数据重载和内容审核。
+
+## 演示数据
+
+首次启动新 volume 时，会自动执行：
+
+- [001_initial_schema.sql](E:/我的项目/NovaHub/db/sql/001_initial_schema.sql)
+- [002_recommend_schema.sql](E:/我的项目/NovaHub/db/sql/002_recommend_schema.sql)
+- [003_demo_data.sql](E:/我的项目/NovaHub/db/sql/003_demo_data.sql)
+- [004_outbox_schema.sql](E:/我的项目/NovaHub/db/sql/004_outbox_schema.sql)
+
+如果数据库已经初始化过，需要手动重载演示数据：
+
+```powershell
+docker exec novahub-mysql sh -c "mysql -unovahub -proot123 --default-character-set=utf8mb4 nova_hub < /docker-entrypoint-initdb.d/003_demo_data.sql"
+docker exec novahub-mysql sh -c "mysql -unovahub -proot123 --default-character-set=utf8mb4 nova_hub < /docker-entrypoint-initdb.d/004_outbox_schema.sql"
+```
 
 ## 验证命令
 
@@ -106,38 +106,99 @@ mvn -pl nova-web -am test
 mvn -pl nova-web -am package -DskipTests
 docker compose -f deploy/docker-compose.yml up -d --build
 curl http://localhost:9080/actuator/health
-curl http://localhost:8089/api/tags/hot
+./scripts/smoke.ps1
 ```
+
+## Windows 下 Testcontainers
+
+如果 Docker 已启动，但 Maven 测试提示 `Could not find a valid Docker environment`，通常是 Testcontainers 没有正确识别 Docker Desktop 的 endpoint。可以在 Docker Desktop 中开启：
+
+```text
+Expose daemon on tcp://localhost:2375 without TLS
+```
+
+然后执行：
+
+```powershell
+$env:DOCKER_HOST="tcp://localhost:2375"
+mvn -pl nova-web -Dtest=CoreFlowIntegrationTest test
+```
+
+也可以直接运行：
+
+```powershell
+./scripts/testcontainers.ps1
+```
+
+## 常见问题
+
+### MySQL 端口冲突
+
+项目已将 MySQL 映射为 `13306:3306`，避免占用本机 `3306`。如果仍冲突，请检查是否有其他容器占用 `13306`。
+
+```powershell
+docker ps --format "table {{.Names}}\t{{.Ports}}"
+```
+
+### `novahub-app` 容器名冲突
+
+```powershell
+docker compose -f deploy/docker-compose.yml down
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+### 页面 500 / 502 或打不开
+
+```powershell
+curl http://localhost:9080/actuator/health
+docker logs --tail 200 novahub-app
+docker logs --tail 100 novahub-nginx
+```
+
+### 中文乱码
+
+- SQL 导入时使用 `--default-character-set=utf8mb4`
+- PowerShell 读取文件时使用 `-Encoding UTF8`
+- 新文档统一保持 UTF-8 编码
+
+### Elasticsearch IK 报错
+
+默认 Docker 环境不安装 IK。项目当前使用 `standard` analyzer 保证索引可建、服务可启动；后续如需更强中文分词，再扩展自定义 ES 镜像。
 
 ## 项目结构
 
 ```text
 NovaHub/
-├── db/sql/                 # 初始化 SQL 与演示数据
-├── deploy/                 # Docker Compose、Nginx、压测脚本
-├── docs/                   # 架构说明、压测报告、运维文档
-├── nova-common/            # 通用响应、异常、JWT、Redis、限流、幂等
-├── nova-user/              # 用户、登录、关注、权限
-├── nova-content/           # 内容、标签、审核、上传
+├── db/sql/                 # 初始化脚本、推荐表结构、演示数据、outbox
+├── deploy/                 # Docker、Nginx、JMeter、wrk 配置
+├── docs/                   # 深度手册、架构、压测、简历写法、演示材料
+├── scripts/                # smoke、Testcontainers 等脚本
+├── nova-common/            # 公共能力
+├── nova-user/              # 用户与权限
+├── nova-content/           # 内容与标签
 ├── nova-interaction/       # 点赞、收藏、评论
 ├── nova-feed/              # Feed 流
-├── nova-hotrank/           # 热榜统计
-├── nova-search/            # Elasticsearch 搜索
+├── nova-hotrank/           # 热榜
+├── nova-search/            # 搜索
+├── nova-monitor/           # 看板与监控
 ├── nova-notify/            # 通知
 ├── nova-recommend/         # 推荐
-├── nova-monitor/           # 监控指标
-└── nova-web/               # Spring Boot 启动入口与静态前端
+└── nova-web/               # 启动入口与前端
 ```
 
-## 架构资料
+## 简历里怎么写
 
-- [系统架构说明](docs/architecture.md)
-- [性能压测报告](docs/performance-report.md)
-- [Feed 架构说明](nova-feed/docs/FEED_ARCHITECTURE.md)
-- [推荐系统说明](nova-recommend/docs/RECOMMEND_ARCHITECTURE.md)
+一句话版：
 
-## 简历写法参考
+> 基于 Spring Boot 3、MyBatis-Plus、Redis、Kafka、Elasticsearch、MySQL 构建内容社区系统，完成内容发布、互动、Feed、热榜、搜索、推荐、监控和 Docker 化演示闭环，并通过限流、幂等、Redis ZSet、Caffeine、本地快照回落和 outbox 可靠事件提升系统稳定性。
 
-可以这样描述项目：
+更完整的简历表述，直接参考：
 
-> NovaHub 是一个基于 Spring Boot 3 + MyBatis-Plus + Redis + Kafka + Elasticsearch 的内容社区平台。我负责核心后端链路和 Docker 化演示环境，实现了用户登录、内容发布、点赞收藏评论、Feed、热榜、搜索索引同步和静态前端演示页；针对热点内容使用 Redis ZSet + Caffeine 本地缓存，写链路通过幂等锁、滑动窗口限流和 Kafka 事件解耦，提高了接口稳定性和可扩展性。
+- [docs/resume-guide.md](E:/我的项目/NovaHub/docs/resume-guide.md)
+
+## 延伸阅读
+
+- [docs/project-deep-dive.md](E:/我的项目/NovaHub/docs/project-deep-dive.md)
+- [docs/architecture.md](E:/我的项目/NovaHub/docs/architecture.md)
+- [docs/performance-report.md](E:/我的项目/NovaHub/docs/performance-report.md)
+- [docs/demo-script.md](E:/我的项目/NovaHub/docs/demo-script.md)

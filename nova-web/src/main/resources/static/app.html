@@ -20,6 +20,8 @@
         <button class="nav-tab active" data-view="feed" type="button">内容流</button>
         <button class="nav-tab" data-view="publish" type="button">发布</button>
         <button class="nav-tab" data-view="profile" type="button">我的</button>
+        <button class="nav-tab" data-view="dashboard" type="button">数据看板</button>
+        <button class="nav-tab" data-view="admin" type="button">管理演示</button>
         <a class="doc-link" href="/doc.html">API 文档</a>
       </nav>
     </header>
@@ -152,6 +154,86 @@
             </div>
           </div>
           <div id="profileDetail" class="profile-detail"></div>
+          <div class="profile-columns">
+            <section>
+              <h2>我的内容</h2>
+              <div id="myContentList" class="content-list compact-list"></div>
+            </section>
+            <section>
+              <h2>我的收藏</h2>
+              <div id="myCollectList" class="content-list compact-list"></div>
+            </section>
+            <section>
+              <h2>通知</h2>
+              <div id="notificationList" class="mini-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view-section" id="dashboardView">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Metrics</span>
+              <h1>数据看板</h1>
+            </div>
+            <button class="ghost-action" id="refreshDashboardBtn" type="button">刷新看板</button>
+          </div>
+          <div id="dashboardCards" class="dashboard-grid"></div>
+          <div class="chart-card">
+            <div class="panel-heading">
+              <span class="eyebrow">Trend</span>
+              <strong>近 7 天趋势</strong>
+            </div>
+            <div id="trendChart" class="bar-chart"></div>
+          </div>
+          <div class="chart-card">
+            <div class="panel-heading">
+              <span class="eyebrow">Top</span>
+              <strong>热门内容</strong>
+            </div>
+            <div id="topContentList" class="mini-list"></div>
+          </div>
+        </section>
+
+        <section class="view-section" id="adminView">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Admin</span>
+              <h1>管理演示</h1>
+            </div>
+          </div>
+          <div id="adminGuard" class="empty-state">请使用 demo_admin / 123456 登录后操作管理能力。</div>
+          <div id="adminActions" class="admin-grid hidden">
+            <article class="admin-card">
+              <span class="eyebrow">HotRank</span>
+              <h2>热榜预热</h2>
+              <p>从 content_stats 恢复 Redis ZSet，解决冷启动首屏热榜为空的问题。</p>
+              <button class="primary-action" data-admin-action="prewarm" type="button">执行预热</button>
+            </article>
+            <article class="admin-card">
+              <span class="eyebrow">Search</span>
+              <h2>搜索重建</h2>
+              <p>触发内容索引 bulk rebuild，默认使用 standard analyzer，后续可扩展别名切换。</p>
+              <button class="primary-action" data-admin-action="rebuildSearch" type="button">重建索引</button>
+            </article>
+            <article class="admin-card">
+              <span class="eyebrow">Demo</span>
+              <h2>演示数据重载</h2>
+              <p>重复导入幂等 SQL，保证面试现场内容流、热榜、评论和通知可见。</p>
+              <button class="primary-action" data-admin-action="reloadDemo" type="button">重载数据</button>
+            </article>
+            <article class="admin-card">
+              <span class="eyebrow">Review</span>
+              <h2>内容审核</h2>
+              <p>输入待审核内容 ID，演示管理员审核通过或拒绝链路。</p>
+              <input id="reviewContentId" placeholder="内容 ID，例如 90001">
+              <div class="admin-inline-actions">
+                <button class="primary-action" data-admin-action="approveContent" type="button">审核通过</button>
+                <button class="ghost-action" data-admin-action="rejectContent" type="button">审核拒绝</button>
+              </div>
+            </article>
+          </div>
+          <pre id="adminOutput" class="admin-output"></pre>
         </section>
       </section>
 

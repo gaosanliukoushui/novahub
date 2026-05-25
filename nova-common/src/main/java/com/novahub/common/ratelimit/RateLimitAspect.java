@@ -75,10 +75,6 @@ public class RateLimitAspect {
             return signature.getDeclaringTypeName() + "." + signature.getName();
         }
 
-        if (!keyExpression.contains("#{")) {
-            return keyExpression;
-        }
-
         String[] paramNames = ((MethodSignature) joinPoint.getSignature()).getParameterNames();
 
         EvaluationContext context = new StandardEvaluationContext();
@@ -89,8 +85,13 @@ public class RateLimitAspect {
             }
         }
 
-        Expression expression = expressionParser.parseExpression(keyExpression);
-        Object value = expression.getValue(context);
-        return value == null ? keyExpression : value.toString();
+        try {
+            Expression expression = expressionParser.parseExpression(keyExpression);
+            Object value = expression.getValue(context);
+            return value == null ? keyExpression : value.toString();
+        } catch (Exception e) {
+            log.debug("SpEL expression evaluation failed, using raw key: {}", keyExpression, e);
+            return keyExpression;
+        }
     }
 }

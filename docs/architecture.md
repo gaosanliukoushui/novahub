@@ -15,6 +15,7 @@ flowchart LR
   Web --> HotRank["nova-hotrank 热榜"]
   Web --> Search["nova-search 搜索"]
   Web --> Notify["nova-notify 通知"]
+  Web --> Outbox[("event_outbox 可靠事件")]
   Content --> MySQL[("MySQL 主从逻辑数据源")]
   User --> MySQL
   Interaction --> MySQL
@@ -44,6 +45,7 @@ sequenceDiagram
   C->>S: 校验 JWT、幂等锁、滑动窗口限流
   S->>R: publish rate counter
   S->>DB: 写入 content 与 content_tag_rel
+  S->>DB: 写入 event_outbox
   S-->>K: 内容发布/审核事件（可开关）
   S-->>U: 返回 contentId
 ```
@@ -52,6 +54,7 @@ sequenceDiagram
 
 - `@Idempotent` 防止重复提交，Redis 锁短 TTL 释放。
 - 发布限流按用户维度计数，避免单用户刷写。
+- 提交审核同步落 `event_outbox`，Kafka 不可用时仍保留可重试事件记录。
 - 草稿 `status=0`，提交审核 `status=1`，通过后 `status=2`。
 - 演示数据直接写入已发布状态，保证 fresh volume 首页可见。
 
@@ -122,6 +125,7 @@ delta = like * 3 + collect * 4 + comment * 5 + view * 1
 - Redis 有数据时优先读 Redis ZSet。
 - Redis 为空时回落到 `content_stats`，fresh Docker volume 也能展示热榜。
 - Caffeine 作为进程内 L1 缓存，降低热点榜单的 Redis 压力。
+- 应用启动和管理员操作均可从 `content_stats` 预热 Redis ZSet，减少冷启动首屏抖动。
 
 ## 搜索索引同步链路
 
@@ -143,6 +147,32 @@ sequenceDiagram
 - 默认使用 Elasticsearch 内置 `standard` analyzer，避免官方镜像缺少 IK 插件导致索引创建失败。
 - `title`、`authorNickname`、`tagNames` 保留 `keyword` 子字段，便于精确匹配和后续聚合。
 - 如果后续需要强化中文召回，可自定义 ES 镜像安装 IK，再把 analyzer 切换为对应的 IK 分词配置。
+- 管理演示页可触发 bulk rebuild；生产化版本建议使用新索引 + alias 切换，失败时保留旧索引承接查询。
+
+## 可靠事件与管理演示
+
+```mermaid
+flowchart LR
+  Write["业务写入: 发布/互动"] --> DB[("MySQL 业务表")]
+  Write --> Outbox[("event_outbox")]
+  Outbox --> Retry["重试扫描任务(可扩展)"]
+  Retry --> Kafka["Kafka Topic"]
+  Admin["demo_admin 管理页"] --> HotPrewarm["热榜预热"]
+  Admin --> SearchRebuild["搜索重建"]
+  Admin --> DemoReload["演示数据重载"]
+```
+
+- outbox 记录事件类型、聚合 ID、payload、状态、重试次数和失败原因，当前发布审核事件已落表。
+- 定时任务会扫描待投递/失败事件并重试 Kafka 投递，失败时更新重试次数、下次重试时间和错误信息。
+- 管理接口包括 `/api/admin/hotrank/prewarm`、`/api/admin/search/rebuild`、`/api/admin/demo-data/reload`。
+- 管理接口通过 RBAC 校验，仅 `ROLE_ADMIN` 可执行，普通演示用户只读。
+
+## 可观测性
+
+- `TraceIdFilter` 为每个请求生成或透传 `X-Request-Id`、`X-Trace-Id`。
+- `Result` 响应体会携带 `requestId` 和 `traceId`，前端报错可以直接带给后端排查。
+- Logback pattern 已输出 `traceId`、`requestId`、`userId`，便于定位慢接口和异常链路。
+- SkyWalking 保留为 Docker 可选能力，默认演示优先保证主链路稳定。
 
 ## 缓存与一致性
 

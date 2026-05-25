@@ -2,6 +2,7 @@ package com.novahub.common.result;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.slf4j.MDC;
 
 @Schema(description = "统一响应封装")
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -19,8 +20,16 @@ public class Result<T> {
     @Schema(description = "时间戳")
     private long timestamp;
 
+    @Schema(description = "请求ID")
+    private String requestId;
+
+    @Schema(description = "链路追踪ID")
+    private String traceId;
+
     public Result() {
         this.timestamp = System.currentTimeMillis();
+        this.requestId = MDC.get("requestId");
+        this.traceId = MDC.get("traceId");
     }
 
     public Result(int code, String message, T data) {
@@ -28,6 +37,8 @@ public class Result<T> {
         this.message = message;
         this.data = data;
         this.timestamp = System.currentTimeMillis();
+        this.requestId = MDC.get("requestId");
+        this.traceId = MDC.get("traceId");
     }
 
     public static <T> Result<T> ok() {
@@ -100,5 +111,21 @@ public class Result<T> {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
     }
 }

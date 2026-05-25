@@ -3,6 +3,7 @@ package com.novahub.content.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novahub.common.exception.BusinessException;
 import com.novahub.common.result.ResultCode;
+import com.novahub.common.service.EventOutboxService;
 import com.novahub.common.utils.RedisUtils;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.novahub.common.utils.SecurityUtils;
@@ -64,6 +65,9 @@ class ContentServiceTest {
     @Mock
     private UserClient userClient;
 
+    @Mock
+    private EventOutboxService eventOutboxService;
+
     private SimpleMeterRegistry meterRegistry;
 
     private ContentServiceImpl contentService;
@@ -75,7 +79,7 @@ class ContentServiceTest {
         meterRegistry = new SimpleMeterRegistry();
         contentService = new ContentServiceImpl(
                 contentMapper, contentTagMapper, contentTagRelMapper,
-                tagService, contentEventProducer, redisUtils, objectMapper, userClient, meterRegistry
+                tagService, contentEventProducer, redisUtils, objectMapper, userClient, meterRegistry, eventOutboxService
         );
     }
 

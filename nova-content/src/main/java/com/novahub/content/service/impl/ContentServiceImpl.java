@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novahub.common.exception.BusinessException;
 import com.novahub.common.result.PageResult;
 import com.novahub.common.result.ResultCode;
+import com.novahub.common.service.EventOutboxService;
 import com.novahub.common.utils.RedisUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -34,7 +35,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -50,6 +55,8 @@ public class ContentServiceImpl implements IContentService {
     private static final long LOCK_TTL_SECONDS = 5;
     private static final int MAX_PUBLISH_PER_USER = 10;
     private static final int PUBLISH_WINDOW_MINUTES = 5;
+    private static final String USER_LIKE_KEY_PREFIX = "user:likes:";
+    private static final String USER_COLLECT_KEY_PREFIX = "user:collects:";
 
     private final ContentMapper contentMapper;
     private final ContentTagMapper contentTagMapper;
@@ -60,6 +67,7 @@ public class ContentServiceImpl implements IContentService {
     private final ObjectMapper objectMapper;
     private final UserClient userClient;
     private final MeterRegistry meterRegistry;
+    private final EventOutboxService eventOutboxService;
 
     @Override
     @DS("master")
@@ -110,6 +118,7 @@ public class ContentServiceImpl implements IContentService {
         }
 
         if (request.getStatus() != null && request.getStatus() == 1) {
+            eventOutboxService.record("CONTENT_REVIEW_SUBMITTED", "CONTENT", contentId, "content-publish", request);
             // Kafka event disabled - uncomment when Kafka is available
             // try { contentEventProducer.sendReviewSubmitEvent(contentId, userId); } catch (Exception e) { log.warn("Kafka event failed", e); }
             log.info("内容提交审核: contentId={}, userId={}", contentId, userId);
@@ -332,6 +341,8 @@ public class ContentServiceImpl implements IContentService {
                 .map(this::convertToListVO)
                 .collect(Collectors.toList());
 
+        enrichListAuthors(voList);
+        enrichListTags(voList);
         enrichListInteractionStatus(voList);
 
         return PageResult.of(voList, result.getTotal(), request.getPage(), request.getPageSize());
@@ -348,6 +359,8 @@ public class ContentServiceImpl implements IContentService {
                 .map(this::convertToListVO)
                 .collect(Collectors.toList());
 
+        enrichListAuthors(voList);
+        enrichListTags(voList);
         return PageResult.of(voList, drafts.size(), 1, drafts.size());
     }
 
@@ -377,6 +390,8 @@ public class ContentServiceImpl implements IContentService {
                 .map(this::convertToListVO)
                 .collect(Collectors.toList());
 
+        enrichListAuthors(voList);
+        enrichListTags(voList);
         enrichListInteractionStatus(voList);
 
         return PageResult.of(voList, result.getTotal(), request.getPage(), request.getPageSize());
@@ -435,10 +450,52 @@ public class ContentServiceImpl implements IContentService {
             vo.setAuthorAvatar(userInfo.getAvatar());
         }
 
-        List<TagVO> tags = tagService.getTagsByContentId(content.getId());
-        vo.setTags(tags);
-
         return vo;
+    }
+
+    private void enrichListTags(List<ContentListVO> voList) {
+        if (voList == null || voList.isEmpty()) {
+            return;
+        }
+
+        List<Long> contentIds = voList.stream()
+                .map(ContentListVO::getId)
+                .collect(Collectors.toList());
+        List<ContentTagRel> relations = contentTagRelMapper.selectByContentIds(contentIds);
+        if (relations == null || relations.isEmpty()) {
+            voList.forEach(vo -> vo.setTags(Collections.emptyList()));
+            return;
+        }
+
+        Map<Long, List<Long>> contentTagIds = new LinkedHashMap<>();
+        List<Long> allTagIds = new ArrayList<>();
+        for (ContentTagRel relation : relations) {
+            Long contentId = relation.getContentId();
+            Long tagId = relation.getTagId();
+            if (contentId != null && tagId != null) {
+                contentTagIds.computeIfAbsent(contentId, key -> new ArrayList<>()).add(tagId);
+                allTagIds.add(tagId);
+            }
+        }
+
+        Map<Long, TagVO> tagMap = contentTagMapper.selectBatchIds(allTagIds).stream()
+                .map(tag -> {
+                    TagVO vo = new TagVO();
+                    vo.setId(tag.getId());
+                    vo.setName(tag.getName());
+                    vo.setColor(tag.getColor());
+                    vo.setUseCount(tag.getUseCount());
+                    return vo;
+                })
+                .collect(Collectors.toMap(TagVO::getId, tag -> tag, (left, right) -> left));
+
+        for (ContentListVO vo : voList) {
+            List<TagVO> tags = contentTagIds.getOrDefault(vo.getId(), Collections.emptyList()).stream()
+                    .map(tagMap::get)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toList());
+            vo.setTags(tags);
+        }
     }
 
     private ContentListVO convertToListVO(Content content) {
@@ -456,12 +513,6 @@ public class ContentServiceImpl implements IContentService {
         vo.setViewCount(content.getViewCount());
         vo.setCreateTime(content.getCreateTime());
 
-        UserClient.UserInfo userInfo = userClient.getUserInfo(content.getUserId());
-        if (userInfo != null) {
-            vo.setAuthorNickname(userInfo.getNickname());
-            vo.setAuthorAvatar(userInfo.getAvatar());
-        }
-
         if (content.getContent() != null) {
             String summary = content.getContent().length() > 200
                     ? content.getContent().substring(0, 200) + "..."
@@ -475,6 +526,21 @@ public class ContentServiceImpl implements IContentService {
         return vo;
     }
 
+    private void enrichListAuthors(List<ContentListVO> voList) {
+        if (voList == null || voList.isEmpty()) {
+            return;
+        }
+        Map<Long, UserClient.UserInfo> userInfoMap = userClient.getUserInfoMap(
+                voList.stream().map(ContentListVO::getUserId).collect(Collectors.toSet()));
+        for (ContentListVO vo : voList) {
+            UserClient.UserInfo userInfo = userInfoMap.get(vo.getUserId());
+            if (userInfo != null) {
+                vo.setAuthorNickname(userInfo.getNickname());
+                vo.setAuthorAvatar(userInfo.getAvatar());
+            }
+        }
+    }
+
     private void enrichInteractionStatus(ContentVO vo) {
         if (vo == null) {
             return;
@@ -486,8 +552,9 @@ public class ContentServiceImpl implements IContentService {
             return;
         }
 
-        vo.setIsLiked(false);
-        vo.setIsCollected(false);
+        String contentId = String.valueOf(vo.getId());
+        vo.setIsLiked(Boolean.TRUE.equals(redisUtils.sIsMember(USER_LIKE_KEY_PREFIX + currentUserId, contentId)));
+        vo.setIsCollected(Boolean.TRUE.equals(redisUtils.sIsMember(USER_COLLECT_KEY_PREFIX + currentUserId, contentId)));
     }
 
     private void enrichListInteractionStatus(List<ContentListVO> voList) {
@@ -497,6 +564,15 @@ public class ContentServiceImpl implements IContentService {
                 vo.setIsLiked(false);
                 vo.setIsCollected(false);
             });
+            return;
+        }
+
+        String likeKey = USER_LIKE_KEY_PREFIX + currentUserId;
+        String collectKey = USER_COLLECT_KEY_PREFIX + currentUserId;
+        for (ContentListVO vo : voList) {
+            String contentId = String.valueOf(vo.getId());
+            vo.setIsLiked(Boolean.TRUE.equals(redisUtils.sIsMember(likeKey, contentId)));
+            vo.setIsCollected(Boolean.TRUE.equals(redisUtils.sIsMember(collectKey, contentId)));
         }
     }
 }

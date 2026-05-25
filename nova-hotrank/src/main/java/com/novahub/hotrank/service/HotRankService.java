@@ -212,6 +212,41 @@ public class HotRankService {
         log.info("热榜全量重算完成，耗时={}ms，处理记录数={}", elapsed, allStats.size());
     }
 
+    public int prewarmFromDatabase(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 1000));
+        log.info("开始从 content_stats 预热热榜: limit={}", safeLimit);
+
+        List<ContentStats> allStats = contentStatsMapper.selectTopByHeatScore(safeLimit);
+        redisUtils.delete(HOT_LIST_KEY_PREFIX + "all");
+        redisUtils.delete(HOT_LIST_KEY_PREFIX + "post");
+        redisUtils.delete(HOT_LIST_KEY_PREFIX + "video");
+        hotContentCache.invalidateAll();
+
+        for (ContentStats stats : allStats) {
+            double score = stats.getHeatScore() != null ? stats.getHeatScore() : 0.0;
+            String contentId = String.valueOf(stats.getContentId());
+            redisUtils.zAdd(HOT_LIST_KEY_PREFIX + "all", contentId, score);
+            if (stats.getType() != null) {
+                redisUtils.zAdd(HOT_LIST_KEY_PREFIX + (stats.getType() == 1 ? "post" : "video"), contentId, score);
+            }
+        }
+
+        log.info("热榜预热完成: records={}", allStats.size());
+        return allStats.size();
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void prewarmOnStartup() {
+        try {
+            Set<String> existing = redisUtils.zReverseRange(HOT_LIST_KEY_PREFIX + "all", 0, 0);
+            if (existing == null || existing.isEmpty()) {
+                prewarmFromDatabase(100);
+            }
+        } catch (Exception e) {
+            log.warn("热榜启动预热失败，将在首次查询时回落数据库: {}", e.getMessage());
+        }
+    }
+
     private double calculateDelta(int eventType) {
         return switch (eventType) {
             case 1 -> WEIGHT_LIKE;

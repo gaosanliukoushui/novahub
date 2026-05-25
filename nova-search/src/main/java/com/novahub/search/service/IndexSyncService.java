@@ -68,14 +68,19 @@ public class IndexSyncService {
     public void buildFullIndex() {
         log.info("开始全量构建内容索引...");
         long start = System.currentTimeMillis();
+        String targetIndex = indexService.aliasExists(CONTENT_INDEX)
+                ? CONTENT_INDEX + "_rebuild_" + System.currentTimeMillis()
+                : CONTENT_INDEX;
 
         int pageSize = 500;
         int page = 1;
         int totalIndexed = 0;
 
         try {
-            indexService.deleteIndex(CONTENT_INDEX);
-            indexService.createIndex(CONTENT_INDEX);
+            if (CONTENT_INDEX.equals(targetIndex)) {
+                indexService.deleteIndex(CONTENT_INDEX);
+            }
+            indexService.createIndex(targetIndex);
 
             while (true) {
                 List<Content> contents = contentMapper.selectList(
@@ -89,7 +94,7 @@ public class IndexSyncService {
                     break;
                 }
 
-                bulkIndexContents(contents);
+                bulkIndexContents(targetIndex, contents);
                 totalIndexed += contents.size();
                 log.info("全量索引进度: 第{}页, 本页{}条, 累计{}条",
                         page, contents.size(), totalIndexed);
@@ -100,16 +105,23 @@ public class IndexSyncService {
                 page++;
             }
 
-            indexService.refreshIndex(CONTENT_INDEX);
+            indexService.refreshIndex(targetIndex);
+            if (!CONTENT_INDEX.equals(targetIndex)) {
+                indexService.switchAlias(CONTENT_INDEX, targetIndex);
+            }
 
             long elapsed = System.currentTimeMillis() - start;
-            log.info("全量索引构建完成, 共{}条, 耗时{}ms", totalIndexed, elapsed);
+            log.info("全量索引构建完成, targetIndex={}, 共{}条, 耗时{}ms", targetIndex, totalIndexed, elapsed);
         } catch (Exception e) {
             log.error("全量索引构建失败: {}", e.getMessage(), e);
         }
     }
 
     public void bulkIndexContents(List<Content> contents) {
+        bulkIndexContents(CONTENT_INDEX, contents);
+    }
+
+    public void bulkIndexContents(String indexName, List<Content> contents) {
         if (contents == null || contents.isEmpty()) return;
 
         try {
@@ -118,7 +130,7 @@ public class IndexSyncService {
                         Map<String, Object> doc = buildDocument(content);
                         return BulkOperation.of(b -> b
                                 .index(IndexOperation.of(i -> i
-                                        .index(CONTENT_INDEX)
+                                        .index(indexName)
                                         .id(String.valueOf(content.getId()))
                                         .document(doc))));
                     })

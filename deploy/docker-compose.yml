@@ -201,12 +201,18 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       ENABLE_SKYWALKING: "false"
       DB_HOST: mysql
-      DB_USER: novahub
-      DB_PASS: root123
+      DB_USER: ${DB_USER:-novahub}
+      DB_PASS: ${DB_PASS:-root123}
       DB_SLAVE_HOST: mysql
-      DB_SLAVE_USER: novahub
-      DB_SLAVE_PASS: root123
+      DB_SLAVE_USER: ${DB_SLAVE_USER:-novahub}
+      DB_SLAVE_PASS: ${DB_SLAVE_PASS:-root123}
+      JWT_SECRET: ${JWT_SECRET:-NovaHub2024SecretKeyForJwtTokenGenerationMustBeLongEnough256bits!}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       TZ: Asia/Shanghai
+    volumes:
+      - ../db/sql:/app/db/sql:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
